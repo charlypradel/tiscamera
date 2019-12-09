@@ -37,6 +37,10 @@ def print_properties(camera):
      value_type, flags,
      category, group) = camera.get_tcam_property("Exposure Auto")
 
+    # Charly for testing
+    '''print(ret, value, min_value, max_value, step_size
+          , value_type, flags, category, group)'''
+
     if ret:
         print("Expposure Auto has value: {}".format(value))
     else:
@@ -57,7 +61,7 @@ def print_properties(camera):
      min_value, max_value,
      default_value, step_size,
      value_type, flags,
-     category, group) = camera.get_tcam_property("Exposure")
+     category, group) = camera.get_tcam_property("Exposure Time (us)")
 
     if ret:
         print("Exposure has value: {}".format(value))
@@ -88,7 +92,7 @@ def main():
     camera.set_tcam_property("Exposure Auto", False)
     camera.set_tcam_property("Gain Auto", False)
 
-    camera.set_tcam_property("Exposure", 3000)
+    camera.set_tcam_property("Exposure Time (us)", 3000)
 
     print_properties(camera)
 
