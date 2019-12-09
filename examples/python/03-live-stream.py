@@ -44,7 +44,7 @@ def main():
     if serial is not None:
         camera.set_property("serial", serial)
 
-    pipeline.set_state(Gst.State.PLAYING)
+    pipeline.set_state(Gst.State.PLAYING) # --> camera starts live streaming
 
     print("Press Ctrl-C to stop.")
 
