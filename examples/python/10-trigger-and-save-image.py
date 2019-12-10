@@ -42,6 +42,7 @@ def on_new_image(tis, userdata):
         userdata.image = tis.Get_image()
         userdata.busy = False
 
+
 # Open camera, set video format, framerate and determine, whether the sink is color or bw
 # Parameters: Serialnumber, width, height, framerate (numerator only) , color
 # If color is False, then monochrome / bw format is in memory. If color is True, then RGB32
