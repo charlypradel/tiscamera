@@ -58,6 +58,8 @@ def on_new_image(cam, imdata):
         return
     imdata.busy = True
     imdata.receive = True
+    imdata.add_image(cam.Get_image())
+    imdata.busy = False
 
 
 # function to set camera parameters to enable best performance
@@ -106,26 +108,21 @@ def trigger_image(cam, num, imData):
         cam.Set_Property("Software Trigger", 1)
         print("Software Trigger on")
         while key != 27 and num > 0: # Abbruchbedingung --> press ESC
-            # check if image_data is busy, True -> wait
-            print("check if imData is busy")
-            while imData.busy and key != 27:
-                key = cv2.waitKey(5)
-                continue
-
 
             # wait for new image
             print("wait for new image")
             tries = 10
             new_img = cam.Get_image()
-            while new_img is None and tries > 0:
-                new_img = cam.Get_image()
-                print(new_img)
-                print(type(new_img))
+            while imData.receive is False and tries > 0:
+                time.sleep(0.1)
                 tries -= 1
-            # camera took picture -> store image in image_data
-            print("adding new image")
-            imData.add_image(new_img)
-            num -= 1
+            # If new image is there to handle
+            if imData.receive:
+                imData.receive = False
+                num -= 1
+            else:
+                    print("no image received")
+            key = cv2.waitKey(10)
     except KeyboardInterrupt:
         cam.Stop_pipeline()
         return False
@@ -135,9 +132,10 @@ def trigger_image(cam, num, imData):
 
 if __name__=="__main__":
     camera = TIS.TIS("21910036", 640, 480, 15, True)  # serial, width, height, frame, colour
+    imData = image_data(False)
+    camera.Set_Image_Callback(on_new_image, imData)
     if setup_camera(camera):
         print("camera is set up")
-    imData = image_data()
     b = trigger_image(camera, 10, imData)
     if b:
         print("all images were taken")
