@@ -1,12 +1,6 @@
-import sys
-import gi
-from gi.repository import Tcam, Gst
 import cv2
-import numpy as np
-import os
 import TIS
 import time
-from collections import namedtuple
 
 
 # This sample shows, how to get an image in a callback and use trigger or software trigger
@@ -48,7 +42,8 @@ def on_new_image(tis, userdata):
 # If color is False, then monochrome / bw format is in memory. If color is True, then RGB32
 # colorformat is in memory
 
-Tis = TIS.TIS("28510360", 2592, 1944, 15, True)
+Tis = TIS.TIS("21910036", 640, 480, 15, True)
+
 
 Tis.Set_Image_Callback(on_new_image, CD)
 
@@ -114,6 +109,8 @@ try:
                 # Check, whether there is a new image and handle it.
                 if CD.newImageReceived is True:
                         CD.newImageReceived = False
+                        #print(CD.image)
+                        #print(type(CD.image))
                         cv2.imshow('Window', CD.image)
                 else:
                         print("No image received")
