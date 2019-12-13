@@ -1,7 +1,4 @@
 # first try to trigger an image and save it
-# wait for 10 seconds before triggering the next one
-
-import sys
 import gi
 import time
 import numpy as np
@@ -11,8 +8,6 @@ import TIS
 gi.require_version("Tcam", "0.1")
 gi.require_version("Gst", "1.0")
 
-from gi.repository import Tcam, Gst
-
 
 # class where images are stored in
 class image_data:
@@ -20,12 +15,15 @@ class image_data:
     def __init__(self, receive):
         self.images = [] # list to save all images
         self.busy = False
-        self.receive = receive
+        self.receive = receive # has an image been received and not yet worked with?
+        self.new_img = [] # save newest image
+        #self.allow = False # camera is allowed to append an image to the list
 
     # add an image to the list
     def add_image(self, new_img):
         self.busy = True
-        self.images = np.append(new_img)
+        self.images.append(new_img)
+        print("image appended")
         self.busy = False
 
     # display all images taken so far
@@ -34,17 +32,17 @@ class image_data:
         if len(self.images) == 0:
             print("No images stored")
             return
-        namedWindow("Display Window", WINDOW_AUTOSIZE)
+        cv2.namedWindow("Display Window", cv2.WINDOW_NORMAL)
         i = 0
-        print("to save the image, press 's' \nTo see the next image, press 'n'\nTo stop, press ESC\n")
+        print("To save the image, press 's' \nTo see the next image, press 'n'\nTo stop, press ESC\n")
         for im in self.images:
             cv2.imshow("Display Window", im)
-            k = cv2.waitKey(0)
-            if k == ord('s'): # wait for 's' key to save the image
-                save_im = "image_" + i + ".jpg"
+            k = input()
+            if k == 's': # 's' key --> save the image
+                save_im = "image_" + str(i) + ".jpg"
                 cv2.imwrite(save_im, im)
                 i += 1
-            elif k == 27: # wait for ESC key to exit
+            elif k == 27 or k == 'x': # ESC key --> exit
                 cv2.destroyAllWindows()
             else: # open next image
                 continue
@@ -58,7 +56,7 @@ def on_new_image(cam, imdata):
         return
     imdata.busy = True
     imdata.receive = True
-    imdata.add_image(cam.Get_image())
+    imdata.new_img = cam.Get_image()
     imdata.busy = False
 
 
@@ -89,11 +87,6 @@ def setup_camera(cam):
 ## param cam: camera which takes the images
 ## return: True if all pictures were taken - False if something went wrong
 def trigger_image(cam, num, imData):
-    print("start trigger image")
-    # don't start pipeline if imData is still busy
-    while imData.busy:
-        continue
-    cam.Set_Property("Trigger Mode", False)
     # start pipeline
     print("start pipeline")
     cam.Start_pipeline()
@@ -101,31 +94,35 @@ def trigger_image(cam, num, imData):
     print("pipeline started, setting properties")
     # start trigger mode
     cam.Set_Property("Trigger Mode", True)
-    time.sleep(200)
+    time.sleep(20)
     print("properties are set")
     key = 0
+    #cv2.namedWindow('Window', cv2.WINDOW_NORMAL)
     try:
-        cam.Set_Property("Software Trigger", 1)
-        print("Software Trigger on")
-        while key != 27 and num > 0: # Abbruchbedingung --> press ESC
-
+        # take all images
+        while key != 'x' and num != len(imData.images): # Abbruchbedingung --> press ESC
             # wait for new image
-            print("wait for new image")
+            #print("wait for new image")
+            cam.Set_Property("Software Trigger", 1)
             tries = 10
-            new_img = cam.Get_image()
+            imData.allow = True
             while imData.receive is False and tries > 0:
                 time.sleep(0.1)
                 tries -= 1
             # If new image is there to handle
-            if imData.receive:
+            if imData.receive is True:
+                imData.add_image(imData.new_img)
                 imData.receive = False
-                num -= 1
+                #cv2.imshow('Window', imData.new_img)
             else:
                     print("no image received")
-            key = cv2.waitKey(10)
+                    print(len(imData.images))
+            key = input("nex image or stop (x)")
     except KeyboardInterrupt:
+        #imData.allow = False
         cam.Stop_pipeline()
         return False
+    #imData.allow = False
     cam.Stop_pipeline()
     return True
 
@@ -136,7 +133,7 @@ if __name__=="__main__":
     camera.Set_Image_Callback(on_new_image, imData)
     if setup_camera(camera):
         print("camera is set up")
-    b = trigger_image(camera, 10, imData)
+    b = trigger_image(camera, 5, imData)
     if b:
         print("all images were taken")
     imData.show_images()
