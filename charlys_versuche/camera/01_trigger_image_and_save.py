@@ -17,7 +17,7 @@ class image_data:
         self.busy = False
         self.receive = receive # has an image been received and not yet worked with?
         self.new_img = [] # save newest image
-        #self.allow = False # camera is allowed to append an image to the list
+        self.runner = 0 # variable how many images are already taken with this camera
 
     # add an image to the list
     def add_image(self, new_img):
@@ -26,27 +26,30 @@ class image_data:
         print("image appended")
         self.busy = False
 
-    # display all images taken so far
-    def show_images(self):
+    # save all images taken so far
+    def save_images(self):
         self.busy = True
         if len(self.images) == 0:
             print("No images stored")
             return
-        cv2.namedWindow("Display Window", cv2.WINDOW_NORMAL)
-        i = 0
-        print("To save the image, press 's' \nTo see the next image, press 'n'\nTo stop, press ESC\n")
         for im in self.images:
-            cv2.imshow("Display Window", im)
-            k = input()
-            if k == 's': # 's' key --> save the image
-                save_im = "image_" + str(i) + ".jpg"
-                cv2.imwrite(save_im, im)
-                i += 1
-            elif k == 27 or k == 'x': # ESC key --> exit
-                cv2.destroyAllWindows()
-            else: # open next image
-                continue
-        cv2.destroyAllWindows()
+            save_im = "image_" + str(self.runner) + ".tif"
+            cv2.imwrite(save_im, im)
+            self.runner += 1
+        self.busy = False
+
+    # display all images taken so far
+    def show_images(self):
+        self.busy = True
+        if len(self.images) == 0:
+            print("no images stored")
+            return
+        cv2.namedWindow("Display Window", cv2.WINDOW_NORMAL)
+        key = 0
+        for im in self.images:
+            if key != 27:
+                cv2.imshow("Display Window", im)
+            key = input("To view next image, press 'n'\nTo stop, press ESC: ")
         self.busy = False
 
 
@@ -96,16 +99,13 @@ def trigger_image(cam, num, imData):
     cam.Set_Property("Trigger Mode", True)
     time.sleep(20)
     print("properties are set")
-    key = 0
-    #cv2.namedWindow('Window', cv2.WINDOW_NORMAL)
+    rotated = True # checking whether the camera rotated or not
     try:
         # take all images
-        while key != 'x' and num != len(imData.images): # Abbruchbedingung --> press ESC
+        while rotated and num != len(imData.images):
             # wait for new image
-            #print("wait for new image")
             cam.Set_Property("Software Trigger", 1)
             tries = 10
-            imData.allow = True
             while imData.receive is False and tries > 0:
                 time.sleep(0.1)
                 tries -= 1
@@ -113,27 +113,37 @@ def trigger_image(cam, num, imData):
             if imData.receive is True:
                 imData.add_image(imData.new_img)
                 imData.receive = False
-                #cv2.imshow('Window', imData.new_img)
             else:
-                    print("no image received")
-                    print(len(imData.images))
-            key = input("nex image or stop (x)")
+                print("no image received")
+                print(len(imData.images))
+            rotated = rotate()
     except KeyboardInterrupt:
-        #imData.allow = False
         cam.Stop_pipeline()
         return False
-    #imData.allow = False
     cam.Stop_pipeline()
     return True
 
 
+# function to rotate the cameras
+def rotate():
+    print("cameras are rotating")
+    time.sleep(10)
+    return True
+
+
 if __name__=="__main__":
+    # initialize camera
     camera = TIS.TIS("21910036", 640, 480, 15, True)  # serial, width, height, frame, colour
+    # object in which data is stored
     imData = image_data(False)
+    # set callback function
     camera.Set_Image_Callback(on_new_image, imData)
+    # set up camera
     if setup_camera(camera):
         print("camera is set up")
-    b = trigger_image(camera, 5, imData)
-    if b:
-        print("all images were taken")
-    imData.show_images()
+    # trigger images
+    b = trigger_image(camera, 5, imData)  # camera, number of images, where to save them
+    print("saving all images")
+    imData.save_images()
+    print("Platform rotated back to origin")
+    print("Process successful")
