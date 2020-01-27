@@ -17,7 +17,7 @@ class image_data:
         self.busy = False
         self.receive = receive # has an image been received and not yet worked with?
         self.new_img = [] # save newest image
-        self.runner = 0 # variable how many images are already taken with this camera
+
 
     # add an image to the list
     def add_image(self, new_img):
@@ -27,15 +27,20 @@ class image_data:
         self.busy = False
 
     # save all images taken so far
-    def save_images(self):
+    # remove all images from list  after saving them
+    def save_images(self, run, circle):
         self.busy = True
         if len(self.images) == 0:
             print("No images stored")
             return
-        for im in self.images:
-            save_im = "image_" + str(self.runner) + ".tif"
+	# list with number of images
+	numImages = [i for i in range(len(self.images))]
+        # save images in folder: run/circle/imNumber.tif
+	for im, imNumber in zip(self.images, numImages):
+            save_im = "~/Documents/images/run" + str(run) + "/circle" + str(circle) + "/"  + "image_" + str(imNumber) + ".tif"
             cv2.imwrite(save_im, im)
-            self.runner += 1
+        # remove images
+        self.images.clear()
         self.busy = False
 
     # display all images taken so far
@@ -64,7 +69,19 @@ def on_new_image(cam, imdata):
 
 
 # function to set camera parameters to enable best performance
-def setup_camera(cam):
+# returns camera and object in which images are stored during one whole circulation
+def setup_camera():
+    # define camera
+    cam = TIS.TIS("21910036", 640, 480, 15, True) # serial, width, height, frame, colour
+
+    # object in which data is stored during one full rotation
+    imData = image_data(False)
+
+    # set callback function
+    cam.Set_Image_Callback(on_new_image, imData)
+
+
+    #### Setting camera parameters
     # set up for colour camera
     cam.Set_Property("Whitebalance Auto", False)
     cam.Set_Property("Whitebalance Red", 64)
@@ -81,8 +98,10 @@ def setup_camera(cam):
     if camera.Get_Property("Exposure Auto").value:
         camera.Set_Property("Exposure Auto", False)
         print("Exposure Auto now : %s " % camera.Get_Property("Exposure Auto").value)
+
     camera.Set_Property("Exposure", 24000)
-    return True
+
+    return cam, imData
 
 
 # function to trigger an image
@@ -90,60 +109,47 @@ def setup_camera(cam):
 ## param cam: camera which takes the images
 ## return: True if all pictures were taken - False if something went wrong
 def trigger_image(cam, num, imData):
-    # start pipeline
-    print("start pipeline")
-    cam.Start_pipeline()
-    time.sleep(2)
-    print("pipeline started, setting properties")
-    # start trigger mode
+    print("setting Trigger Mode")
     cam.Set_Property("Trigger Mode", True)
     time.sleep(20)
-    print("properties are set")
-    rotated = True # checking whether the camera rotated or not
-    try:
-        # take all images
-        while rotated and num != len(imData.images):
-            # wait for new image
-            cam.Set_Property("Software Trigger", 1)
-            tries = 10
-            while imData.receive is False and tries > 0:
-                time.sleep(0.1)
-                tries -= 1
-            # If new image is there to handle
-            if imData.receive is True:
-                imData.add_image(imData.new_img)
-                imData.receive = False
-            else:
-                print("no image received")
-                print(len(imData.images))
-            rotated = rotate()
-    except KeyboardInterrupt:
-        cam.Stop_pipeline()
-        return False
-    cam.Stop_pipeline()
+    # take all images
+    while num != len(imData.images):
+		# wait for new image
+                cam.Set_Property("Software Trigger", 1)
+                tries = 10
+                while imData.receive is False and tries > 0:
+                	time.sleep(0.1)
+                	tries -= 1
+                # If new image is there to handle
+                if imData.receive is True:
+                	imData.add_image(imData.new_img)
+                	imData.receive = False
+                else:
+                	print("no image received")
+                	print(len(imData.images))
+			return False
+
     return True
 
-
-# function to rotate the cameras
-def rotate():
-    print("cameras are rotating")
-    time.sleep(10)
-    return True
 
 
 if __name__=="__main__":
     # initialize camera
-    camera = TIS.TIS("21910036", 640, 480, 15, True)  # serial, width, height, frame, colour
-    # object in which data is stored
-    imData = image_data(False)
+    #camera = TIS.TIS("21910036", 640, 480, 15, True)  # serial, width, height, frame, colour
+
+    # object in which data is stored during one full rotation
+    #imData = image_data(False)
+
     # set callback function
-    camera.Set_Image_Callback(on_new_image, imData)
+    #camera.Set_Image_Callback(on_new_image, imData)
+
     # set up camera
-    if setup_camera(camera):
-        print("camera is set up")
+    #if setup_camera(camera):
+        #print("camera is set up")
+
     # trigger images
-    b = trigger_image(camera, 5, imData)  # camera, number of images, where to save them
-    print("saving all images")
-    imData.save_images()
-    print("Platform rotated back to origin")
-    print("Process successful")
+    #b = trigger_image(camera, 5, imData)  # camera, number of images, where to save them
+    #print("saving all images")
+    #imData.save_images()
+    #print("Platform rotated back to origin")
+    #print("Process successful")
